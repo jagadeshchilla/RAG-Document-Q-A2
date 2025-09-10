@@ -1,179 +1,157 @@
 ## Conversational RAG with PDF Uploads and Chat History
 
-![Status](https://img.shields.io/badge/status-active-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.x-ff4b4b)
-![LangChain](https://img.shields.io/badge/LangChain-0.3.x-000000)
-![ChromaDB](https://img.shields.io/badge/VectorDB-Chroma-4caa64)
-![HuggingFace](https://img.shields.io/badge/Embeddings-all--MiniLM--L6--v2-yellow)
-![Groq](https://img.shields.io/badge/LLM-Groq%20Chat-lightgrey)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.x-FF4B4B?logo=streamlit&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-0.2+-0A0A0A)
+![ChromaDB](https://img.shields.io/badge/Chroma-Vector%20Store-5B9BD5)
+![HuggingFace](https://img.shields.io/badge/Embeddings-HF%20all--MiniLM--L6--v2-FCC72C?logo=huggingface&logoColor=black)
+![Groq](https://img.shields.io/badge/LLM-Groq%20Chat-00A98F)
 
 ### What is this project?
-**A Streamlit app for question-answering over your PDFs** using a modern Retrieval-Augmented Generation (RAG) pipeline. You upload a PDF, the app indexes it into a vector database, and you can chat conversationally with memory of prior turns. It reformulates follow-up questions into standalone ones, retrieves relevant chunks, and answers concisely.
+An end‑to‑end, production‑ready Conversational Retrieval-Augmented Generation (RAG) app built with Streamlit. Users upload a PDF, the app indexes it into a vector database, and a chat interface answers questions grounded in the document while preserving conversational context across turns.
 
-- **UI**: `Streamlit`
-- **RAG Orchestration**: `LangChain`
-- **LLM**: `ChatGroq` (e.g., `openai/gpt-oss-120b`)
-- **Embeddings**: `HuggingFaceEmbeddings` (`all-MiniLM-L6-v2`)
-- **Vector Store**: `Chroma`
-- **Loaders & Splitters**: `PyPDFLoader`, `RecursiveCharacterTextSplitter`
-
-Key file(s):
-- `app.py` — the Streamlit app
-- `requirements.txt` — dependencies
-
-### Features
-- **PDF ingestion** with automatic chunking
-- **Conversational memory** across turns
-- **History-aware question rewriting** for better retrieval
-- **Concise markdown answers** with retrieved context
-- **One-click session clearing**
+### Key features
+- **PDF ingestion**: Upload a single PDF; pages are parsed and chunked.
+- **RAG pipeline**: Embeddings + vector search + LLM‑based answer synthesis.
+- **Chat history awareness**: Questions are contextualized using prior conversation turns.
+- **Local vector store**: Chroma for fast similarity search.
+- **Modern UI**: Streamlit app with session management.
 
 ---
 
-### Methods Used
-- **Retrieval-Augmented Generation (RAG)**: Combines LLM reasoning with document retrieval to ground answers in your PDFs.
-- **History-Aware Retrieval**: `create_history_aware_retriever` reformulates follow-ups using chat history.
-- **Retrieval Chain**: `create_retrieval_chain` composes retrieval with an answer-generation chain.
-- **Stuff Documents Chain**: `create_stuff_documents_chain(llm, prompt)` injects retrieved chunks into a structured prompt.
-- **Session Memory**: `RunnableWithMessageHistory` persists chats per `session_id` using `ChatMessageHistory`.
-- **Vector Indexing**: `HuggingFaceEmbeddings` + `Chroma` for fast semantic search.
+## Methods used
+
+- **Document loading**: `PyPDFLoader` extracts pages from the uploaded PDF.
+- **Chunking**: `RecursiveCharacterTextSplitter` creates overlapping chunks (size ~5000, overlap ~500) to balance retrieval recall and context coherence.
+- **Embeddings**: `HuggingFaceEmbeddings` with `all-MiniLM-L6-v2` for compact, high‑quality sentence embeddings.
+- **Vector store**: `Chroma` stores and retrieves top‑k relevant chunks via cosine similarity.
+- **History‑aware retrieval**:
+  - `create_history_aware_retriever` re‑writes the current user question into a standalone query using chat history.
+  - `create_retrieval_chain` pulls relevant chunks for the rewritten query.
+- **Answer synthesis**: `create_stuff_documents_chain(llm, prompt)` combines retrieved context with a structured prompt to generate grounded answers.
+- **Conversation state**: `RunnableWithMessageHistory` persists messages per `session_id` via `ChatMessageHistory`.
 
 ---
 
-### Architecture at a Glance
+## Architecture (graph)
+
 ```mermaid
 flowchart LR
-    A[PDF Upload] --> B[PyPDFLoader]
-    B --> C[RecursiveCharacterTextSplitter]
-    C --> D[HuggingFaceEmbeddings\nall-MiniLM-L6-v2]
-    D --> E[Chroma Vector DB]
-
-    subgraph Conversational Loop
-    F[User Question] --> G[History-Aware Question\nRewriter]
-    G --> H[Retriever from Chroma]
-    H --> I[Stuff Documents Chain\n(LLM Prompt)]
-    I --> J[ChatGroq LLM]
-    J --> K[Answer]
-    K --> L[Chat History Store]
-    L --> G
-    end
-
-    E <--> H
+    U[User] -->|Upload PDF / Ask| S[Streamlit UI]
+    S --> L[PDF Loader (PyPDFLoader)]
+    L --> T[Text Splitter (RecursiveCharacterTextSplitter)]
+    T --> E[Embeddings (HF all-MiniLM-L6-v2)]
+    E --> V[(Chroma Vector DB)]
+    S --> H[Chat History]
+    H --> Q[History-Aware Question Rewriter]
+    Q --> R[Retriever]
+    R --> V
+    V --> C[Context Docs]
+    C --> A[LLM Answer Synthesizer]
+    A --> S
 ```
 
-### Sequence Diagram
+### Sequence (inference path)
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant S as Streamlit App
-    participant R as Retriever (Chroma)
-    participant L as LLM (ChatGroq)
+    participant User
+    participant UI as Streamlit UI
+    participant Hist as Chat History
+    participant Ret as History-Aware Retriever
+    participant DB as Chroma
+    participant LLM as Groq Chat
 
-    U->>S: Upload PDF
-    S->>S: Load & split PDF
-    S->>R: Embed & index chunks
-    U->>S: Ask question
-    S->>S: Rewrite question with chat history
-    S->>R: Retrieve relevant chunks
-    R-->>S: Top-k documents
-    S->>L: Stuff docs into prompt
-    L-->>S: Answer
-    S-->>U: Render concise markdown
-    S->>S: Append to session history
+    User->>UI: Ask question
+    UI->>Hist: Fetch conversation for session
+    UI->>Ret: Provide question + history
+    Ret->>DB: Similarity search with rewritten query
+    DB-->>Ret: Top-k chunks
+    Ret->>LLM: Stuff prompt + context + history
+    LLM-->>UI: Grounded answer
+    UI-->>User: Display answer
 ```
 
 ---
 
-### Getting Started
+## Quickstart
 
-#### 1) Clone and set up environment
+### Prerequisites
+- Python 3.10+
+- Windows PowerShell (or your preferred shell)
+
+### 1) Clone and enter the project
 ```bash
-git clone <your-repo-url>
-cd "RAG Document & Q&A2"
+cd "C:\Users\Welcome\OneDrive\Documents\AI\GEN AI\RAG Document & Q&A2"
+```
+
+### 2) Create and activate a virtual environment (optional if you already have `venv`)
+```bash
 python -m venv venv
-venv\Scripts\activate  # Windows PowerShell
+./venv/Scripts/activate
+```
+
+### 3) Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-#### 2) Environment variables
-Create a `.env` file in the project root:
-```env
+### 4) Environment variables
+Create a `.env` file in the project root with:
+```bash
 HF_TOKEN=your_huggingface_token
 ```
-Notes:
-- The app requests your **Groq API key** securely via the UI at runtime.
-- Ensure the HF token has permission to pull the embedding model if needed.
+You will supply your **Groq API key** in the UI when prompted.
 
-#### 3) Run the app
+### 5) Run the app
 ```bash
 streamlit run app.py
 ```
-
-Open the local URL Streamlit prints (usually `http://localhost:8501`).
-
----
-
-### Usage
-1. Enter your **Groq API key** in the input field.
-2. Optionally set a `Session ID` to keep multiple conversations separated.
-3. Upload a single PDF file.
-4. Ask questions; follow-ups will be context-aware.
-5. Use the **Clear Session** button to reset the store.
+Open the local URL shown in the terminal.
 
 ---
 
-### Configuration & Internals
-- **LLM**: `ChatGroq(model_name="openai/gpt-oss-120b")`
-- **Embeddings**: `HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")`
-- **Vector DB**: `Chroma.from_documents(...)`
-- **Splitter**: `RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)`
-- **Retriever**: `vectorstore.as_retriever()`
-- **History-Aware Retriever**: `create_history_aware_retriever(llm, retriever, prompt)`
-- **Answer Chain**: `create_stuff_documents_chain(llm, qa_prompt)`
-- **RAG Chain**: `create_retrieval_chain(history_aware_retriever, chain)`
-- **Conversation Wrapper**: `RunnableWithMessageHistory` with keys:
-  - `input_messages_key="input"`
-  - `history_messages_key="chat_history"`
-  - `output_messages_key="answer"`
-
-Prompts:
-- Contextualizer prompt: rewrites user input into a standalone question.
-- Answer prompt: instructs the LLM to be helpful, brief, and markdown-formatted.
+## Configuration
+- **Embedding model**: `all-MiniLM-L6-v2` (change via `HuggingFaceEmbeddings`).
+- **Chunking**: `chunk_size=5000`, `chunk_overlap=500` in `RecursiveCharacterTextSplitter`.
+- **Vector DB**: `Chroma.from_documents` persists an in‑memory local index by default.
+- **LLM**: `ChatGroq` model `openai/gpt-oss-120b`. Set in `app.py`.
+- **Sessioning**: `session_id` input box allows multiple isolated conversations.
 
 ---
 
-### Screenshots (optional)
-You can add screenshots here (UI home, chat, upload flow). Example placeholders:
-
-![Upload screen](https://img.shields.io/badge/Screenshot-Upload-lightgrey)
-![Chat view](https://img.shields.io/badge/Screenshot-Chat-lightgrey)
-
----
-
-### Troubleshooting
-- **ImportError create_retriever_chain**: Use `create_retrieval_chain` from `langchain.chains`.
-- **AttributeError input_variables**: Ensure `create_stuff_documents_chain(llm, prompt)` argument order.
-- **RunnableWithMessageHistory init error**: Use `runnable=...` instead of `chain=`.
-- **Missing packages**: Re-run `pip install -r requirements.txt` in the active venv.
-- **No response / rate limits**: Verify Groq key validity and model availability.
+## Project layout
+```text
+app.py               # Streamlit app (UI + RAG pipeline)
+requirements.txt     # Python dependencies
+research_papers/     # Sample PDFs (optional)
+venv/                # Virtual environment (optional)
+```
 
 ---
 
-### Tech Stack
-- **Python** 3.10+
-- **Streamlit** for UI
-- **LangChain** for orchestration
-- **Chroma** for vector search
-- **HuggingFace** for embeddings
-- **Groq** for LLM inference
+## How it works (brief)
+1. User uploads a PDF, which is split into overlapping text chunks.
+2. Each chunk is embedded via HuggingFace and stored in Chroma.
+3. On each user query, the question is rewritten using the chat history to improve retrieval specificity.
+4. The retriever fetches the most relevant chunks from the vector store.
+5. The LLM “stuffs” the context into a prompt and produces a grounded answer.
+6. Conversation history is updated and used for subsequent turns.
 
 ---
 
-### Roadmap (ideas)
-- Multi-file upload and batch ingestion
-- Source-citation rendering in answers
-- Adjustable chunk sizes and top-k controls
-- Persisted vector store across sessions
+---
+
+## Troubleshooting
+- If you see `ImportError` for LangChain symbols, ensure your `langchain`, `langchain-community`, and related packages are up to date and consistent with `requirements.txt`.
+- If Streamlit cannot find your environment variables, verify your `.env` and restart the app.
+- On Windows, if `streamlit` is not recognized, activate the venv: `./venv/Scripts/activate`.
+
+---
+
+## Future enhancements
+- Multi‑file ingestion and batch indexing
+- Persisted Chroma directory for durable indexes
+- Citations with source page highlighting
+- Model switcher and retrieval diagnostics
 
 
