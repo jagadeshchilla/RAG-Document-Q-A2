@@ -37,18 +37,18 @@ An end‑to‑end, production‑ready Conversational Retrieval-Augmented Generat
 
 ```mermaid
 flowchart LR
-    U[User] -->|Upload PDF / Ask| S[Streamlit UI]
-    S --> L[PDF Loader (PyPDFLoader)]
-    L --> T[Text Splitter (RecursiveCharacterTextSplitter)]
-    T --> E[Embeddings (HF all-MiniLM-L6-v2)]
-    E --> V[(Chroma Vector DB)]
-    S --> H[Chat History]
-    H --> Q[History-Aware Question Rewriter]
-    Q --> R[Retriever]
-    R --> V
-    V --> C[Context Docs]
-    C --> A[LLM Answer Synthesizer]
-    A --> S
+    U[User] -->|Upload PDF / Ask| S[Streamlit UI];
+    S --> L[PDF Loader (PyPDFLoader)];
+    L --> T[Text Splitter (RecursiveCharacterTextSplitter)];
+    T --> E[Embeddings (HF all-MiniLM-L6-v2)];
+    E --> V[(Chroma Vector DB)];
+    S --> H[Chat History];
+    H --> Q[History-Aware Question Rewriter];
+    Q --> R[Retriever];
+    R --> V;
+    V --> C[Context Docs];
+    C --> A[LLM Answer Synthesizer];
+    A --> S;
 ```
 
 ### Sequence (inference path)
